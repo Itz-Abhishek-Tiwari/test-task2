@@ -1,174 +1,172 @@
 import { useDecisionStore, useLogin, useUserStore } from "@/store/store";
-
 import { useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Dimensions,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
-import PagerView from "react-native-pager-view";
+import Swiper from "react-native-deck-swiper";
 
-const HomeScreen = () => {
+const { width, height } = Dimensions.get("window");
+
+export default function HomeScreen() {
   const router = useRouter();
   const logout = useLogin((s) => s.logout);
   const { users, loading, error, fetchUsers } = useUserStore();
   const { addAccepted, addRejected } = useDecisionStore();
-
-  const pagerRef = useRef(null);
-  const [page, setPage] = useState(0);
+  const [swipedAll, setSwipedAll] = useState(false);
 
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  if (loading) return <ActivityIndicator size="large" />;
-  if (error) return <Text>Error loading users</Text>;
-
-  const handleAccept = () => {
-    const user = users[page];
-    addAccepted(user);
-
-    // go to next page
-    if (page < users.length - 1) {
-      pagerRef.current.setPage(page + 1);
-      setPage(page + 1);
-    }
-  };
-
-  const handleReject = () => {
-    const user = users[page];
-    addRejected(user);
-
-    // go to next page
-    if (page < users.length - 1) {
-      pagerRef.current.setPage(page + 1);
-      setPage(page + 1);
-    }
-  };
+  if (loading) return <ActivityIndicator size="large" style={{ flex: 1 }} />;
+  if (error) return <Text style={styles.centerText}>Error loading users</Text>;
+  if (users.length === 0)
+    return <Text style={styles.centerText}>No users available</Text>;
 
   return (
     <View style={styles.container}>
-      {/* SWIPE CARDS */}
+      {/* Top Navigation */}
       <View style={styles.navRow}>
-        <TouchableOpacity
-          style={styles.viewBtn}
-          onPress={() => router.push("/accepted")}
-        >
-          <Text style={styles.viewTxt}>View Accepted</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.viewBtn}
-          onPress={() => router.push("/rejected")}
-        >
-          <Text style={styles.viewTxt}>View Rejected</Text>
-        </TouchableOpacity>
+        <Text style={styles.navBtn} onPress={() => router.push("/accepted")}>
+          Accepted
+        </Text>
+        <Text style={styles.navBtn} onPress={() => router.push("/rejected")}>
+          Rejected
+        </Text>
       </View>
 
-      <PagerView
-        ref={pagerRef}
-        style={styles.pager}
-        initialPage={0}
-        onPageSelected={(e) => setPage(e.nativeEvent.position)}
-      >
-        {users.map((u) => (
-          <View style={styles.card} key={u.id}>
-            <Text style={styles.name}>
-              {u.firstName} {u.lastName}
-            </Text>
-            <Text style={styles.info}>Age: {u.age}</Text>
-            <Text style={styles.info}>Email: {u.email}</Text>
-          </View>
-        ))}
-      </PagerView>
-
-      {/* BUTTONS */}
-      <View style={styles.row}>
-        <TouchableOpacity style={styles.reject} onPress={handleReject}>
-          <Text style={styles.txt}>Reject</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.accept} onPress={handleAccept}>
-          <Text style={styles.txt}>Accept</Text>
-        </TouchableOpacity>
+      {/* Swipe Cards */}
+      <View style={styles.swiperContainer}>
+        {swipedAll ? (
+          <Text style={styles.centerText}>No more profiles!</Text>
+        ) : (
+          <Swiper
+            cards={users}
+            stackSize={3}
+            cardVerticalMargin={20}
+            animateCardOpacity
+            verticalSwipe={false}
+            backgroundColor="transparent"
+            containerStyle={{ flex: 1 }}
+            renderCard={(user) => (
+              <View style={styles.card}>
+                <Text style={styles.name}>
+                  {user.firstName} {user.lastName}
+                </Text>
+                <Text style={styles.info}>Age: {user.age}</Text>
+                <Text style={styles.info}>Email:</Text>
+                <Text style={styles.infoEmail}>{user.email}</Text>
+              </View>
+            )}
+            onSwipedRight={(index) => addAccepted(users[index])}
+            onSwipedLeft={(index) => addRejected(users[index])}
+            onSwipedAll={() => setSwipedAll(true)}
+          />
+        )}
       </View>
 
-      {/* LOGOUT */}
-      <TouchableOpacity
+      {/* Logout */}
+      <Text
         style={styles.logout}
         onPress={() => {
           logout();
           router.push("/login/loginScreen");
         }}
       >
-        <Text style={styles.logoutTxt}>Logout</Text>
-      </TouchableOpacity>
+        Logout
+      </Text>
     </View>
   );
-};
-
-export default HomeScreen;
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: 40, backgroundColor: "#111" },
-  pager: { flex: 1 },
-  card: {
-    margin: 20,
-    padding: 20,
-    borderRadius: 20,
-    backgroundColor: "#222",
+  container: {
+    flex: 1,
+    backgroundColor: "#111",
+    paddingTop: 50,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
   },
-  name: { color: "white", fontSize: 28, fontWeight: "bold" },
-  info: { color: "#ccc", marginTop: 8, fontSize: 18 },
 
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    padding: 15,
-  },
-  reject: {
-    backgroundColor: "#ff4444",
-    padding: 15,
-    borderRadius: 10,
-    width: "40%",
-    alignItems: "center",
-  },
-  accept: {
-    backgroundColor: "#44cc44",
-    padding: 15,
-    borderRadius: 10,
-    width: "40%",
-    alignItems: "center",
-  },
-  txt: { color: "white", fontSize: 18, fontWeight: "bold" },
-
-  logout: {
-    padding: 12,
-    backgroundColor: "red",
-    margin: 15,
-    borderRadius: 10,
-  },
-  logoutTxt: { color: "white", textAlign: "center", fontSize: 16 },
   navRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    paddingBottom: 10,
+    justifyContent: "space-between",
+    width: "90%",
+    marginBottom: 10,
   },
-  viewBtn: {
+  navBtn: {
     backgroundColor: "#333",
-    padding: 12,
-    borderRadius: 10,
-    width: "40%",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    color: "#fff",
+    fontWeight: "700",
+    textAlign: "center",
+    fontSize: 16,
+  },
+
+  swiperContainer: {
+    flex: 1,
+    width: width,
+    justifyContent: "center",
     alignItems: "center",
   },
-  viewTxt: {
-    color: "white",
-    fontSize: 16,
+
+  card: {
+    width: width * 0.8,
+    height: height * 0.55,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#222",
+    padding: 25,
+    shadowColor: "#000",
+    shadowOpacity: 0.4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  name: {
+    color: "#fff",
+    fontSize: 28,
     fontWeight: "bold",
+    textAlign: "center",
+  },
+  info: {
+    color: "#ccc",
+    fontSize: 18,
+    marginTop: 10,
+  },
+  infoEmail: {
+    color: "#ccc",
+    fontSize: 16,
+    marginTop: 4,
+    textAlign: "center",
+    flexWrap: "wrap",
+  },
+
+  logout: {
+    marginBottom: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    backgroundColor: "#ff3b30",
+    borderRadius: 12,
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
+    textAlign: "center",
+    width: "90%",
+  },
+
+  centerText: {
+    color: "#fff",
+    fontSize: 20,
+    textAlign: "center",
+    marginTop: 50,
   },
 });
